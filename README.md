@@ -5,10 +5,13 @@ A lightweight .NET library for producing, receiving, and transporting Apache NiF
 ## Features
 
 - **FlowFile V3 Support**: Create and unpack binary-encoded FlowFiles (V3) with full attribute and content preservation.
+- **System.IO.Pipelines**: High-performance, low-allocation I/O support for V3 packing and unpacking.
 - **FlowFile V1 Support**: Create FlowFiles using the Tar-based V1 format.
 - **Transport Mechanisms**:
   - **ListenHTTP**: Post FlowFiles directly to NiFi's `ListenHTTP` processor.
   - **Site-to-Site (S2S)**: Push data to NiFi Input Ports using the native S2S protocol.
+- **Resilience & Retries**: Built-in support for .NET 8 Resilience Pipelines (Polly) to handle transient failures in S2S transactions.
+- **Structured Logging**: Integrated with `Microsoft.Extensions.Logging` for deep diagnostics.
 - **Asynchronous Design**: Fully async/await compliant for high-performance streaming.
 - **Multi-targeting**: Supports .NET 8.0, 9.0, and 10.0.
 
@@ -16,7 +19,7 @@ A lightweight .NET library for producing, receiving, and transporting Apache NiF
 
 The library is divided into two primary services to separate concerns between data formatting and network transport:
 
-- **`IFlowFileService` / `FlowFileService`**: Responsible for the low-level serialization and deserialization of NiFi FlowFile formats (V1 and V3).
+- **`IFlowFileService` / `FlowFileService`**: Responsible for the low-level serialization and deserialization of NiFi FlowFile formats (V1 and V3). Supports both `Stream` and `System.IO.Pipelines`.
 - **`INifiTransportService` / `NifiTransportService`**: Responsible for high-level communication protocols, utilizing the `IFlowFileService` for payload preparation.
 
 ## Project Structure
@@ -53,27 +56,49 @@ var package = new NifiPackage()
 ```csharp
 using NifiKit.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Polly;
+using Polly.Retry;
 
-// Registration example
 var services = new ServiceCollection();
-services.AddHttpClient();
+
+// 1. Add standard Logging
+services.AddLogging(builder => builder.AddConsole());
+
+// 2. Add HttpClient with Resilience
+services.AddHttpClient<INifiTransportService, NifiTransportService>()
+        .AddStandardResilienceHandler(); // Handles transient HTTP errors
+
+// 3. Configure a named Resilience Pipeline for the entire S2S transaction
+services.AddResiliencePipeline("NifiS2S", builder =>
+{
+    builder.AddRetry(new RetryStrategyOptions
+    {
+        MaxRetryAttempts = 3,
+        Delay = TimeSpan.FromSeconds(2),
+        BackoffType = DelayBackoffType.Exponential
+    });
+});
+
 services.AddSingleton<IFlowFileService, FlowFileService>();
 services.AddSingleton<INifiTransportService, NifiTransportService>();
 
 var provider = services.BuildServiceProvider();
 var transportService = provider.GetRequiredService<INifiTransportService>();
-var flowFileService = provider.GetRequiredService<IFlowFileService>();
 ```
 
-#### Creating a FlowFile V3 Stream
+#### High-Performance I/O with System.IO.Pipelines
 
 ```csharp
-var attributes = new Dictionary<string, string> { { "source", "dotnet-app" } };
-byte[] content = Encoding.UTF8.GetBytes("Data for NiFi");
+using System.IO.Pipelines;
 
-// Create a single V3 FlowFile as a byte array using IFlowFileService
-var package = flowFileService.CreatePackage(attributes, content);
-byte[] v3Data = await flowFileService.CreateFlowFileV3Async(package);
+// Unpacking from a PipeReader
+await foreach (var package in flowFileService.UnpackFlowFilesV3Async(pipeReader))
+{
+    // Process package...
+}
+
+// Packing to a PipeWriter
+await flowFileService.WriteFlowFileV3Async(package, pipeWriter);
 ```
 
 #### Sending to NiFi via Site-to-Site (S2S)
@@ -88,21 +113,7 @@ bool success = await transportService.SendViaS2SAsync(
 );
 ```
 
-#### Posting to ListenHTTP
-Use this for simple HTTP-based ingestion.
-
-```csharp
-using (var ms = new MemoryStream(v3Data))
-{
-    bool success = await transportService.PostToNiFiAsync(
-        "http://nifi-server:8000/contentListener", 
-        ms
-    );
-}
-```
-
 #### Unpacking FlowFiles (V3)
-If you are receiving V3 streams from NiFi (e.g., via a webhook), you can unpack them easily.
 
 ```csharp
 await foreach (var package in flowFileService.UnpackFlowFilesV3Async(inputStream))

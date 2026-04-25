@@ -1,3 +1,4 @@
+using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using NifiKit.Models;
 
@@ -20,6 +21,13 @@ public interface IFlowFileService {
 
   IAsyncEnumerable<NifiPackage> UnpackFlowFilesV3Async(
     Stream input_stream, CancellationToken ct = default);
+
+  // --- V3 (Pipelines) ---
+  Task WriteFlowFileV3Async(NifiPackage package, PipeWriter writer,
+                            CancellationToken ct = default);
+
+  IAsyncEnumerable<NifiPackage> UnpackFlowFilesV3Async(
+    PipeReader reader, CancellationToken ct = default);
 
   // --- V1 (Tar Archive) ---
   Task<byte[]> CreateFlowFileV1Async(NifiPackage package);

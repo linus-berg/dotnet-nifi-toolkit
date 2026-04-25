@@ -1,13 +1,22 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Formats.Tar;
+using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using NifiKit.Models;
 
 namespace NifiKit.Services {
   public class FlowFileService : IFlowFileService {
     private static readonly byte[] S_MAGIC_HEADER_V3_ =
       Encoding.ASCII.GetBytes("NiFiFF3");
+
+    private readonly ILogger<FlowFileService>? logger_;
+
+    public FlowFileService(ILogger<FlowFileService>? logger = null) {
+      logger_ = logger;
+    }
 
     #region Package Helpers
 
@@ -30,86 +39,147 @@ namespace NifiKit.Services {
 
     public async Task WriteFlowFileV3Async(NifiPackage package,
                                            Stream output_stream) {
-      await output_stream.WriteAsync(
-        S_MAGIC_HEADER_V3_,
-        0,
-        S_MAGIC_HEADER_V3_.Length
+      PipeWriter writer = PipeWriter.Create(output_stream);
+      await WriteFlowFileV3Async(package, writer);
+      await writer.FlushAsync();
+    }
+
+    public async Task WriteFlowFileV3Async(NifiPackage package,
+                                           PipeWriter writer,
+                                           CancellationToken ct = default) {
+      logger_?.LogDebug(
+        "Packing FlowFile V3 with {AttributeCount} attributes",
+        package.attributes.Count
       );
-      await WriteFieldLengthAsync(output_stream, package.attributes.Count);
 
+      // 1. Magic Header
+      Memory<byte> header_memory = writer.GetMemory(S_MAGIC_HEADER_V3_.Length);
+      S_MAGIC_HEADER_V3_.CopyTo(header_memory);
+      writer.Advance(S_MAGIC_HEADER_V3_.Length);
+
+      // 2. Attributes Count
+      WriteFieldLength(writer, package.attributes.Count);
+
+      // 3. Attributes
       foreach (KeyValuePair<string, string> attribute in package.attributes) {
-        await WriteStringV3Async(output_stream, attribute.Key);
-        await WriteStringV3Async(
-          output_stream,
-          attribute.Value ?? string.Empty
-        );
+        WriteStringV3(writer, attribute.Key);
+        WriteStringV3(writer, attribute.Value ?? string.Empty);
       }
 
-      long content_length = 0;
+      // 4. Content
       if (package.content.CanSeek) {
-        content_length = package.content.Length;
-        await WriteInt64Async(output_stream, content_length);
-        await package.content.CopyToAsync(output_stream);
+        long length = package.content.Length;
+        WriteInt64(writer, length);
+        await writer.FlushAsync(ct);
+        await package.content.CopyToAsync(writer.AsStream(), ct);
       } else {
+        // Must buffer to get length if stream is not seekable
         using MemoryStream buffer = new MemoryStream();
-        await package.content.CopyToAsync(buffer);
-        content_length = buffer.Length;
-        await WriteInt64Async(output_stream, content_length);
+        await package.content.CopyToAsync(buffer, ct);
+        WriteInt64(writer, buffer.Length);
+        await writer.FlushAsync(ct);
         buffer.Position = 0;
-        await buffer.CopyToAsync(output_stream);
+        await buffer.CopyToAsync(writer.AsStream(), ct);
       }
+
+      await writer.FlushAsync(ct);
     }
 
     public async Task WriteFlowFilesV3Async(IEnumerable<NifiPackage> packages,
                                             Stream output_stream) {
+      PipeWriter writer = PipeWriter.Create(output_stream);
       foreach (NifiPackage package in packages) {
-        await WriteFlowFileV3Async(package, output_stream);
+        await WriteFlowFileV3Async(package, writer);
       }
+
+      await writer.FlushAsync();
     }
 
     public async IAsyncEnumerable<NifiPackage> UnpackFlowFilesV3Async(
       Stream input_stream,
       [EnumeratorCancellation] CancellationToken ct = default) {
+      PipeReader reader = PipeReader.Create(input_stream);
+      await foreach (NifiPackage package in
+                     UnpackFlowFilesV3Async(reader, ct)) {
+        yield return package;
+      }
+    }
+
+    public async IAsyncEnumerable<NifiPackage> UnpackFlowFilesV3Async(
+      PipeReader reader,
+      [EnumeratorCancellation] CancellationToken ct = default) {
       while (!ct.IsCancellationRequested) {
-        byte[] header = new byte[S_MAGIC_HEADER_V3_.Length];
-        int read = await input_stream.ReadAsync(header, 0, header.Length, ct);
-        if (read == 0) {
+        ReadResult result = await reader.ReadAtLeastAsync(
+                              S_MAGIC_HEADER_V3_.Length,
+                              ct
+                            );
+        ReadOnlySequence<byte> buffer = result.Buffer;
+
+        if (buffer.IsEmpty && result.IsCompleted)
           yield break;
+
+        if (buffer.Length < S_MAGIC_HEADER_V3_.Length) {
+          if (result.IsCompleted)
+            throw new EndOfStreamException();
+          reader.AdvanceTo(buffer.Start, buffer.End);
+          continue;
         }
 
-        if (read < header.Length || !header.SequenceEqual(S_MAGIC_HEADER_V3_)) {
+        // Verify Magic Header
+        ReadOnlySequence<byte> header_buffer =
+          buffer.Slice(0, S_MAGIC_HEADER_V3_.Length);
+        if (!SequenceEqual(header_buffer, S_MAGIC_HEADER_V3_)) {
+          logger_?.LogError("Invalid NiFi FlowFile V3 Magic Header");
           throw new InvalidDataException(
             "Invalid NiFi FlowFile V3 Magic Header"
           );
         }
 
+        reader.AdvanceTo(buffer.GetPosition(S_MAGIC_HEADER_V3_.Length));
+
         NifiPackage package = new NifiPackage();
-        int attr_count = await ReadFieldLengthAsync(input_stream, ct);
+
+        // Read Attribute Count
+        int attr_count = await ReadFieldLengthAsync(reader, ct);
 
         for (int i = 0; i < attr_count; i++) {
-          string key = await ReadStringV3Async(input_stream, ct);
-          string value = await ReadStringV3Async(input_stream, ct);
-          package.attributes[key] = value;
+          string key = await ReadStringV3Async(reader, ct);
+          string value = await ReadStringV3Async(reader, ct);
+          package.AddAttribute(key, value);
         }
 
-        long content_length = await ReadInt64Async(input_stream, ct);
+        // Read Content Length
+        long content_length = await ReadInt64Async(reader, ct);
+
+        // Read Content
         MemoryStream ms = new MemoryStream();
-        byte[] buffer = new byte[8192];
         long remaining = content_length;
         while (remaining > 0) {
-          int to_read = (int)Math.Min(buffer.Length, remaining);
-          int bytes_read = await input_stream.ReadAsync(buffer, 0, to_read, ct);
-          if (bytes_read == 0) {
-            throw new EndOfStreamException();
+          ReadResult read_result = await reader.ReadAsync(ct);
+          ReadOnlySequence<byte> read_buffer = read_result.Buffer;
+          long to_copy = Math.Min(read_buffer.Length, remaining);
+
+          ReadOnlySequence<byte> slice = read_buffer.Slice(0, to_copy);
+          foreach (ReadOnlyMemory<byte> segment in slice) {
+            await ms.WriteAsync(segment, ct);
           }
 
-          await ms.WriteAsync(buffer, 0, bytes_read, ct);
-          remaining -= bytes_read;
+          SequencePosition consumed = read_buffer.GetPosition(to_copy);
+          reader.AdvanceTo(consumed);
+          remaining -= to_copy;
+
+          if (read_result.IsCompleted && remaining > 0)
+            throw new EndOfStreamException();
         }
 
         ms.Position = 0;
         package.content = ms;
 
+        logger_?.LogTrace(
+          "Unpacked FlowFile V3 with {AttributeCount} attributes and {ContentLength} bytes",
+          attr_count,
+          content_length
+        );
         yield return package;
       }
     }
@@ -126,6 +196,7 @@ namespace NifiKit.Services {
 
     public async Task WriteFlowFileV1Async(NifiPackage package,
                                            Stream output_stream) {
+      logger_?.LogDebug("Packing FlowFile V1 (Tar)");
       await using TarWriter writer = new TarWriter(
         output_stream,
         TarEntryFormat.Ustar,
@@ -151,79 +222,90 @@ namespace NifiKit.Services {
 
     #endregion
 
-    #region Helpers
+    #region Binary Helpers (Pipelines)
 
-    private async Task WriteStringV3Async(Stream stream, string value) {
+    private void WriteStringV3(PipeWriter writer, string value) {
       byte[] bytes = Encoding.UTF8.GetBytes(value);
-      await WriteFieldLengthAsync(stream, bytes.Length);
-      await stream.WriteAsync(bytes, 0, bytes.Length);
+      WriteFieldLength(writer, bytes.Length);
+      writer.Write(bytes);
     }
 
     private async Task<string> ReadStringV3Async(
-      Stream stream, CancellationToken ct) {
-      int length = await ReadFieldLengthAsync(stream, ct);
-      byte[] bytes = new byte[length];
-      int read = 0;
-      while (read < length) {
-        int r = await stream.ReadAsync(bytes, read, length - read, ct);
-        if (r == 0) {
-          throw new EndOfStreamException();
-        }
-
-        read += r;
-      }
-
-      return Encoding.UTF8.GetString(bytes);
+      PipeReader reader, CancellationToken ct) {
+      int length = await ReadFieldLengthAsync(reader, ct);
+      ReadResult result = await reader.ReadAtLeastAsync(length, ct);
+      ReadOnlySequence<byte> buffer = result.Buffer.Slice(0, length);
+      string value = Encoding.UTF8.GetString(buffer);
+      reader.AdvanceTo(buffer.End);
+      return value;
     }
 
-    private async Task WriteFieldLengthAsync(Stream stream, int length) {
+    private void WriteFieldLength(PipeWriter writer, int length) {
       if (length < 0xFFFF) {
-        byte[] bytes = new byte[2];
-        BinaryPrimitives.WriteUInt16BigEndian(bytes, (ushort)length);
-        await stream.WriteAsync(bytes, 0, bytes.Length);
+        Span<byte> span = writer.GetSpan(2);
+        BinaryPrimitives.WriteUInt16BigEndian(span, (ushort)length);
+        writer.Advance(2);
       } else {
-        byte[] bytes = new byte[6];
-        BinaryPrimitives.WriteUInt16BigEndian(bytes, 0xFFFF);
-        BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(2), length);
-        await stream.WriteAsync(bytes, 0, bytes.Length);
+        Span<byte> span = writer.GetSpan(6);
+        BinaryPrimitives.WriteUInt16BigEndian(span, 0xFFFF);
+        BinaryPrimitives.WriteInt32BigEndian(span.Slice(2), length);
+        writer.Advance(6);
       }
     }
 
     private async Task<int> ReadFieldLengthAsync(
-      Stream stream, CancellationToken ct) {
-      byte[] bytes = new byte[2];
-      if (await stream.ReadAsync(bytes, 0, 2, ct) < 2) {
-        throw new EndOfStreamException();
-      }
+      PipeReader reader, CancellationToken ct) {
+      ReadResult result = await reader.ReadAtLeastAsync(2, ct);
+      ReadOnlySequence<byte> buffer = result.Buffer;
+      ushort length =
+        BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(0, 2).ToArray());
 
-      ushort length = BinaryPrimitives.ReadUInt16BigEndian(bytes);
       if (length < 0xFFFF) {
+        reader.AdvanceTo(buffer.GetPosition(2));
         return length;
       }
 
-      byte[] full_bytes = new byte[4];
-      if (await stream.ReadAsync(full_bytes, 0, 4, ct) < 4) {
-        throw new EndOfStreamException();
+      reader.AdvanceTo(buffer.GetPosition(2));
+      result = await reader.ReadAtLeastAsync(4, ct);
+      buffer = result.Buffer;
+      int full_length =
+        BinaryPrimitives.ReadInt32BigEndian(buffer.Slice(0, 4).ToArray());
+      reader.AdvanceTo(buffer.GetPosition(4));
+      return full_length;
+    }
+
+    private void WriteInt64(PipeWriter writer, long value) {
+      Span<byte> span = writer.GetSpan(8);
+      BinaryPrimitives.WriteInt64BigEndian(span, value);
+      writer.Advance(8);
+    }
+
+    private async Task<long> ReadInt64Async(PipeReader reader,
+                                            CancellationToken ct) {
+      ReadResult result = await reader.ReadAtLeastAsync(8, ct);
+      ReadOnlySequence<byte> buffer = result.Buffer.Slice(0, 8);
+      long value = BinaryPrimitives.ReadInt64BigEndian(buffer.ToArray());
+      reader.AdvanceTo(buffer.End);
+      return value;
+    }
+
+    private bool SequenceEqual(ReadOnlySequence<byte> sequence, byte[] match) {
+      if (sequence.Length != match.Length)
+        return false;
+      int index = 0;
+      foreach (ReadOnlyMemory<byte> segment in sequence) {
+        for (int i = 0; i < segment.Length; i++) {
+          if (segment.Span[i] != match[index++])
+            return false;
+        }
       }
 
-      return BinaryPrimitives.ReadInt32BigEndian(full_bytes);
+      return true;
     }
 
-    private async Task WriteInt64Async(Stream stream, long value) {
-      byte[] bytes = new byte[8];
-      BinaryPrimitives.WriteInt64BigEndian(bytes, value);
-      await stream.WriteAsync(bytes, 0, bytes.Length);
-    }
+    #endregion
 
-    private async Task<long>
-      ReadInt64Async(Stream stream, CancellationToken ct) {
-      byte[] bytes = new byte[8];
-      if (await stream.ReadAsync(bytes, 0, 8, ct) < 8) {
-        throw new EndOfStreamException();
-      }
-
-      return BinaryPrimitives.ReadInt64BigEndian(bytes);
-    }
+    #region Other Helpers
 
     private string
       SerializeAttributesV1(IDictionary<string, string> attributes) {
