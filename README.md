@@ -72,7 +72,8 @@ var attributes = new Dictionary<string, string> { { "source", "dotnet-app" } };
 byte[] content = Encoding.UTF8.GetBytes("Data for NiFi");
 
 // Create a single V3 FlowFile as a byte array using IFlowFileService
-byte[] v3Data = await flowFileService.CreateFlowFileV3Async(attributes, content);
+var package = flowFileService.CreatePackage(attributes, content);
+byte[] v3Data = await flowFileService.CreateFlowFileV3Async(package);
 ```
 
 #### Sending to NiFi via Site-to-Site (S2S)

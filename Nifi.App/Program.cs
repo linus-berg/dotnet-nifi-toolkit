@@ -14,10 +14,13 @@ Dictionary<string, string> attributes = new() {
     "attribute_1", "attribute-value"
   }
 };
-byte[] flowfile = await service.CreateFlowFileV3Async(
-                    attributes,
-                    Encoding.UTF8.GetBytes(content)
-                  );
+
+NifiPackage nifi_pkg = service.CreatePackage(
+  attributes,
+  Encoding.UTF8.GetBytes(content)
+);
+
+byte[] flowfile = await service.CreateFlowFileV3Async(nifi_pkg);
 
 MemoryStream ms = new(flowfile);
 
