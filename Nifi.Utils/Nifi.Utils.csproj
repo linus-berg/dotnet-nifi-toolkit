@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -14,7 +14,6 @@
         <PackageProjectUrl>https://github.com/linus-berg/dotnet-nifi-utils</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-        <Version />
     </PropertyGroup>
 
 </Project>
