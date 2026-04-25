@@ -7,7 +7,6 @@
         
         <!-- NuGet Metadata -->
         <PackageId>Nifi.Utils</PackageId>
-        <Version>1.0.0</Version>
         <Authors>linus-berg</Authors>
         <Description>A lightweight .NET library for producing, receiving, and transporting Apache NiFi FlowFiles (V1, V3, and S2S).</Description>
         <PackageTags>nifi;flowfile;s2s;transport;utils</PackageTags>
