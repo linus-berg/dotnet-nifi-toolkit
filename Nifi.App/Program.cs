@@ -1,13 +1,14 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System.Text;
+using Bogus;
 using Nifi.App;
 using NifiKit.Models;
 using NifiKit.Services;
 
 Console.WriteLine("Hello, World!");
-
-string content = "Hello!";
+Faker faker = new Faker();
+string content = faker.Lorem.Paragraphs(100);
 FlowFileService service = new();
 NifiPackage nifi_pkg = new NifiPackage();
 
