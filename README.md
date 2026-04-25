@@ -110,6 +110,7 @@ await foreach (var package in flowFileService.UnpackFlowFilesV3Async(inputStream
     // Process package.content...
 }
 ```
+
 ## Implementation Details
 
 The implementation of FlowFile formats and protocols in this library is based on the official Apache NiFi source code.
@@ -129,3 +130,20 @@ The library implements the NiFi FlowFile V3 specification as defined in the NiFi
 FlowFile V1 uses the standard Tar archive format containing two files:
 - `flowfile.attributes`: A key-value properties file.
 - `flowfile.content`: The actual payload.
+
+## Publishing to NuGet
+
+This project includes a GitHub Action to automatically publish the library to NuGet when a new version tag is pushed.
+
+### Setup
+1. Create a [NuGet API Key](https://www.nuget.org/account/apikeys).
+2. Add the key as a secret in your GitHub repository:
+   - Name: `NUGET_API_KEY`
+   - Value: (Your API Key)
+
+### Triggering a Release
+To trigger a new release, create and push a tag:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```

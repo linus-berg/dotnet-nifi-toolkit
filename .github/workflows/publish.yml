@@ -1,0 +1,29 @@
+name: Publish to NuGet
+
+on:
+  push:
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # Note: Update this when .NET 10 is officially available on GitHub Runners
+          
+      - name: Restore dependencies
+        run: dotnet restore
+        
+      - name: Build
+        run: dotnet build --no-restore -c Release
+        
+      - name: Pack
+        run: dotnet pack Nifi.Utils/Nifi.Utils.csproj --no-build -c Release -o out
+        
+      - name: Push to NuGet
+        run: dotnet nuget push out/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }}
