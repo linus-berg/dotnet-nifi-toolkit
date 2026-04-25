@@ -22,10 +22,9 @@ List<NifiPackage> packages =
   await service.UnpackFlowFilesV3Async(ms).ToListAsync();
 
 foreach (NifiPackage pkg in packages) {
-  using (StreamReader reader = new(pkg.content, Encoding.UTF8)) {
-    string result = reader.ReadToEnd();
-    Console.WriteLine(result);
-  }
+  using StreamReader reader = new(pkg.content, Encoding.UTF8);
+  string result = reader.ReadToEnd();
+  Console.WriteLine(result);
 }
 
 Guid uuid = Guid.NewGuid();
