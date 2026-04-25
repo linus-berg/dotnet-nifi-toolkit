@@ -102,6 +102,7 @@ namespace Nifi.Utils.Services {
           if (bytes_read == 0) {
             throw new EndOfStreamException();
           }
+
           await ms.WriteAsync(buffer, 0, bytes_read, ct);
           remaining -= bytes_read;
         }
@@ -168,6 +169,7 @@ namespace Nifi.Utils.Services {
         if (r == 0) {
           throw new EndOfStreamException();
         }
+
         read += r;
       }
 
@@ -193,14 +195,17 @@ namespace Nifi.Utils.Services {
       if (await stream.ReadAsync(bytes, 0, 2, ct) < 2) {
         throw new EndOfStreamException();
       }
+
       ushort length = BinaryPrimitives.ReadUInt16BigEndian(bytes);
       if (length < 0xFFFF) {
         return length;
       }
+
       byte[] full_bytes = new byte[4];
       if (await stream.ReadAsync(full_bytes, 0, 4, ct) < 4) {
         throw new EndOfStreamException();
       }
+
       return BinaryPrimitives.ReadInt32BigEndian(full_bytes);
     }
 
@@ -216,6 +221,7 @@ namespace Nifi.Utils.Services {
       if (await stream.ReadAsync(bytes, 0, 8, ct) < 8) {
         throw new EndOfStreamException();
       }
+
       return BinaryPrimitives.ReadInt64BigEndian(bytes);
     }
 
