@@ -11,11 +11,18 @@ A lightweight .NET 10 library for producing, receiving, and transporting Apache 
   - **Site-to-Site (S2S)**: Push data to NiFi Input Ports using the native S2S protocol.
 - **Asynchronous Design**: Fully async/await compliant for high-performance streaming.
 
+## Architecture
+
+The library is divided into two primary services to separate concerns between data formatting and network transport:
+
+- **`IFlowFileService` / `FlowFileService`**: Responsible for the low-level serialization and deserialization of NiFi FlowFile formats (V1 and V3).
+- **`INifiTransportService` / `NifiTransportService`**: Responsible for high-level communication protocols, utilizing the `IFlowFileService` for payload preparation.
+
 ## Project Structure
 
 - `Nifi.Utils`: The core library.
-  - `Services/FlowFileService`: Handles packing and unpacking of FlowFiles (V1 and V3).
-  - `Services/NifiTransportService`: Handles communication with NiFi (S2S and HTTP).
+  - `Services/`: Contains the interface and implementation for FlowFile and Transport services.
+  - `Models/`: Contains the `NifiPackage` data model.
 - `Nifi.App`: A console application (placeholder for usage and testing).
 
 ## Getting Started
@@ -41,23 +48,30 @@ var package = new NifiPackage
 
 ### Usage Examples
 
-#### Initializing Services
+#### Initializing Services (Dependency Injection)
 
 ```csharp
 using Nifi.Utils.Services;
+using Microsoft.Extensions.DependencyInjection;
 
-var flowFileService = new FlowFileService();
-var transportService = new NifiTransportService(new HttpClient(), flowFileService);
+// Registration example
+var services = new ServiceCollection();
+services.AddHttpClient();
+services.AddSingleton<IFlowFileService, FlowFileService>();
+services.AddSingleton<INifiTransportService, NifiTransportService>();
+
+var provider = services.BuildServiceProvider();
+var transportService = provider.GetRequiredService<INifiTransportService>();
+var flowFileService = provider.GetRequiredService<IFlowFileService>();
 ```
 
 #### Creating a FlowFile V3 Stream
-FlowFile V3 is a binary format that prepends metadata to the content.
 
 ```csharp
 var attributes = new Dictionary<string, string> { { "source", "dotnet-app" } };
 byte[] content = Encoding.UTF8.GetBytes("Data for NiFi");
 
-// Create a single V3 FlowFile as a byte array
+// Create a single V3 FlowFile as a byte array using IFlowFileService
 byte[] v3Data = await flowFileService.CreateFlowFileV3Async(attributes, content);
 ```
 
