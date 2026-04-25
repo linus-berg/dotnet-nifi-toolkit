@@ -2,9 +2,9 @@ using System.Buffers.Binary;
 using System.Formats.Tar;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Nifi.Utils.Models;
+using NifiKit.Models;
 
-namespace Nifi.Utils.Services {
+namespace NifiKit.Services {
   public class FlowFileService : IFlowFileService {
     private static readonly byte[] S_MAGIC_HEADER_V3_ =
       Encoding.ASCII.GetBytes("NiFiFF3");

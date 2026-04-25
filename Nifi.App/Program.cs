@@ -2,8 +2,8 @@
 
 using System.Text;
 using Nifi.App;
-using Nifi.Utils.Models;
-using Nifi.Utils.Services;
+using NifiKit.Models;
+using NifiKit.Services;
 
 Console.WriteLine("Hello, World!");
 

@@ -1,9 +1,9 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
-using Nifi.Utils.Models;
+using NifiKit.Models;
 
-namespace Nifi.Utils.Services;
+namespace NifiKit.Services;
 
 public class NifiTransportService : INifiTransportService {
   private readonly IFlowFileService flow_file_service_;

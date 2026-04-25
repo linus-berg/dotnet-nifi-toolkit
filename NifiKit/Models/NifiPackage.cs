@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Nifi.Utils.Models;
+namespace NifiKit.Models;
 
 /// <summary>
 /// Represents a single NiFi FlowFile (attributes + content).

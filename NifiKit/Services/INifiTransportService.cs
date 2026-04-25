@@ -1,6 +1,6 @@
-using Nifi.Utils.Models;
+using NifiKit.Models;
 
-namespace Nifi.Utils.Services;
+namespace NifiKit.Services;
 
 /// <summary>
 ///   Service for transporting NiFi FlowFiles using ListenHTTP and Site-to-Site (S2S).

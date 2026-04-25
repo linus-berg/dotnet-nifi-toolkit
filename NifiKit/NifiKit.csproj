@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -6,12 +6,12 @@
         <Nullable>enable</Nullable>
         
         <!-- NuGet Metadata -->
-        <PackageId>Nifi.Utils</PackageId>
+        <PackageId>NifiKit</PackageId>
         <Authors>linus-berg</Authors>
         <Description>A lightweight .NET library for producing, receiving, and transporting Apache NiFi FlowFiles (V1, V3, and S2S).</Description>
         <PackageTags>nifi;flowfile;s2s;transport;utils</PackageTags>
-        <RepositoryUrl>https://github.com/linus-berg/dotnet-nifi-utils</RepositoryUrl>
-        <PackageProjectUrl>https://github.com/linus-berg/dotnet-nifi-utils</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/linus-berg/dotnet-nifi-toolkit</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/linus-berg/dotnet-nifi-toolkit</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     </PropertyGroup>

@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
-using Nifi.Utils.Models;
+using NifiKit.Models;
 
-namespace Nifi.Utils.Services;
+namespace NifiKit.Services;
 
 /// <summary>
 /// Service for producing and receiving NiFi FlowFiles using V1 and V3 formats.
