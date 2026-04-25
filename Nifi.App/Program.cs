@@ -13,6 +13,8 @@ FlowFileService service = new();
 NifiPackage nifi_pkg = new();
 
 nifi_pkg.AddAttribute("attribute_1", "attribute-value");
+nifi_pkg.AddAttribute("xyz", "A GREAT ATTRIBUTE OF GREAT VALUE");
+nifi_pkg.AddAttribute("a-weird-value", "åäö");
 nifi_pkg.SetContent(Encoding.UTF8.GetBytes(content));
 
 byte[] flowfile = await service.CreateFlowFileV3Async(nifi_pkg);
