@@ -1,0 +1,12 @@
+bin/
+obj/
+volumes/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+keycloak.json
+.idea/
+*.log
+data/
+.DS_Store
+*.DotSettings.user

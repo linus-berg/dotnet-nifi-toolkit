@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nifi.App", "Nifi.App\Nifi.App.csproj", "{AEFFCDF3-79A8-4A75-BFBF-69A0B181E1EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nifi.Utils", "Nifi.Utils\Nifi.Utils.csproj", "{369BDB88-BDF3-4625-81CB-3FBC18E685A3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AEFFCDF3-79A8-4A75-BFBF-69A0B181E1EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AEFFCDF3-79A8-4A75-BFBF-69A0B181E1EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AEFFCDF3-79A8-4A75-BFBF-69A0B181E1EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AEFFCDF3-79A8-4A75-BFBF-69A0B181E1EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{369BDB88-BDF3-4625-81CB-3FBC18E685A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{369BDB88-BDF3-4625-81CB-3FBC18E685A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{369BDB88-BDF3-4625-81CB-3FBC18E685A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{369BDB88-BDF3-4625-81CB-3FBC18E685A3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
