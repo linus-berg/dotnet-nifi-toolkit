@@ -34,16 +34,15 @@ The library is divided into two primary services to separate concerns between da
 ### Core Models
 
 #### `NifiPackage`
-Represents a single NiFi FlowFile, containing a dictionary of attributes and a stream for the content.
+Represents a single NiFi FlowFile. It provides fluent helper methods for setting attributes and content.
 
 ```csharp
 using Nifi.Utils.Models;
 
-var package = new NifiPackage
-{
-    attributes = new Dictionary<string, string> { { "filename", "test.txt" } },
-    content = new MemoryStream(Encoding.UTF8.GetBytes("Hello NiFi"))
-};
+var package = new NifiPackage()
+    .AddAttribute("filename", "test.txt")
+    .AddAttribute("mime.type", "text/plain")
+    .SetContent(Encoding.UTF8.GetBytes("Hello NiFi"));
 ```
 
 ### Usage Examples

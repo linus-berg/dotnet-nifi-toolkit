@@ -9,16 +9,10 @@ Console.WriteLine("Hello, World!");
 
 string content = "Hello!";
 FlowFileService service = new();
-Dictionary<string, string> attributes = new() {
-  {
-    "attribute_1", "attribute-value"
-  }
-};
+NifiPackage nifi_pkg = new NifiPackage();
 
-NifiPackage nifi_pkg = service.CreatePackage(
-  attributes,
-  Encoding.UTF8.GetBytes(content)
-);
+nifi_pkg.AddAttribute("attribute_1", "attribute-value");
+nifi_pkg.SetContent(Encoding.UTF8.GetBytes(content));
 
 byte[] flowfile = await service.CreateFlowFileV3Async(nifi_pkg);
 

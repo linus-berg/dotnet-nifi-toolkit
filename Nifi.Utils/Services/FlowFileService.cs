@@ -14,11 +14,9 @@ namespace Nifi.Utils.Services
 
         public NifiPackage CreatePackage(IDictionary<string, string> attributes, byte[] content)
         {
-            return new NifiPackage
-            {
-                attributes = attributes,
-                content = new MemoryStream(content)
-            };
+            return new NifiPackage()
+                .AddAttributes(attributes)
+                .SetContent(content);
         }
 
         #endregion
