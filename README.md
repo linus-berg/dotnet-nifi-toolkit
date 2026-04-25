@@ -8,12 +8,14 @@ A lightweight .NET 10 library for producing, receiving, and transporting Apache 
 - **FlowFile V1 Support**: Create FlowFiles using the Tar-based V1 format.
 - **Transport Mechanisms**:
   - **ListenHTTP**: Post FlowFiles directly to NiFi's `ListenHTTP` processor.
-  - **Site-to-Site (S2S)**: Push data to NiFi Input Ports using the native S2S protocol (REST API based implementation).
+  - **Site-to-Site (S2S)**: Push data to NiFi Input Ports using the native S2S protocol.
 - **Asynchronous Design**: Fully async/await compliant for high-performance streaming.
 
 ## Project Structure
 
-- `Nifi.Utils`: The core library containing the service and models.
+- `Nifi.Utils`: The core library.
+  - `Services/FlowFileService`: Handles packing and unpacking of FlowFiles (V1 and V3).
+  - `Services/NifiTransportService`: Handles communication with NiFi (S2S and HTTP).
 - `Nifi.App`: A console application (placeholder for usage and testing).
 
 ## Getting Started
@@ -39,18 +41,24 @@ var package = new NifiPackage
 
 ### Usage Examples
 
+#### Initializing Services
+
+```csharp
+using Nifi.Utils.Services;
+
+var flowFileService = new FlowFileService();
+var transportService = new NifiTransportService(new HttpClient(), flowFileService);
+```
+
 #### Creating a FlowFile V3 Stream
 FlowFile V3 is a binary format that prepends metadata to the content.
 
 ```csharp
-using Nifi.Utils;
-
-var nifiService = new NifiService(new HttpClient());
 var attributes = new Dictionary<string, string> { { "source", "dotnet-app" } };
 byte[] content = Encoding.UTF8.GetBytes("Data for NiFi");
 
 // Create a single V3 FlowFile as a byte array
-byte[] v3Data = await nifiService.CreateFlowFileV3Async(attributes, content);
+byte[] v3Data = await flowFileService.CreateFlowFileV3Async(attributes, content);
 ```
 
 #### Sending to NiFi via Site-to-Site (S2S)
@@ -58,7 +66,7 @@ The S2S protocol allows for reliable, high-volume data transfer to NiFi Input Po
 
 ```csharp
 var packages = new List<NifiPackage> { ... };
-bool success = await nifiService.SendViaS2SAsync(
+bool success = await transportService.SendViaS2SAsync(
     "http://nifi-server:8080", 
     "MyInputPort", 
     packages
@@ -71,7 +79,7 @@ Use this for simple HTTP-based ingestion.
 ```csharp
 using (var ms = new MemoryStream(v3Data))
 {
-    bool success = await nifiService.PostToNiFiAsync(
+    bool success = await transportService.PostToNiFiAsync(
         "http://nifi-server:8000/contentListener", 
         ms
     );
@@ -82,7 +90,7 @@ using (var ms = new MemoryStream(v3Data))
 If you are receiving V3 streams from NiFi (e.g., via a webhook), you can unpack them easily.
 
 ```csharp
-await foreach (var package in nifiService.UnpackFlowFilesV3Async(inputStream))
+await foreach (var package in flowFileService.UnpackFlowFilesV3Async(inputStream))
 {
     Console.WriteLine($"Received file: {package.attributes["filename"]}");
     // Process package.content...

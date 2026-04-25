@@ -1,22 +1,14 @@
 using System.Buffers.Binary;
 using System.Formats.Tar;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Nifi.Utils.Models;
 
-namespace Nifi.Utils
+namespace Nifi.Utils.Services
 {
-    public class NifiService : INifiService
+    public class FlowFileService : IFlowFileService
     {
         private static readonly byte[] S_MAGIC_HEADER_V3_ = Encoding.ASCII.GetBytes("NiFiFF3");
-        private readonly HttpClient http_client_;
-
-        public NifiService(HttpClient http_client)
-        {
-            http_client_ = http_client;
-        }
 
         #region FlowFile V3 (Binary)
 
@@ -137,65 +129,7 @@ namespace Nifi.Utils
 
         #endregion
 
-        #region Transport
-
-        public async Task<bool> PostToNiFiAsync(string url, Stream flow_file_stream, string content_type = "application/flowfile-v3")
-        {
-            StreamContent content = new StreamContent(flow_file_stream);
-            content.Headers.ContentType = new MediaTypeHeaderValue(content_type);
-
-            HttpResponseMessage response = await http_client_.PostAsync(url, content);
-            return response.IsSuccessStatusCode;
-        }
-
-        public async Task<bool> SendViaS2SAsync(string nifi_base_url, string input_port_name, IEnumerable<NifiPackage> packages)
-        {
-            nifi_base_url = nifi_base_url.TrimEnd('/');
-
-            // 1. Discover Port ID
-            NifiSiteToSiteDto? s2_s_info = await http_client_.GetFromJsonAsync<NifiSiteToSiteDto>($"{nifi_base_url}/nifi-api/site-to-site");
-            NifiPortDto? port = s2_s_info?.controller?.input_ports?.FirstOrDefault(p => p.name.Equals(input_port_name, StringComparison.OrdinalIgnoreCase));
-            if (port == null || string.IsNullOrEmpty(port.id)) return false;
-
-            // 2. Create Transaction
-            HttpResponseMessage transaction_response = await http_client_.PostAsJsonAsync($"{nifi_base_url}/nifi-api/site-to-site/input-ports/{port.id}/transactions", new { });
-            if (!transaction_response.IsSuccessStatusCode) return false;
-
-            NifiTransactionDto? transaction = await transaction_response.Content.ReadFromJsonAsync<NifiTransactionDto>();
-            if (transaction == null || string.IsNullOrEmpty(transaction.id)) return false;
-
-            try
-            {
-                // 3. Send Data (FlowFile V3 Stream)
-                using MemoryStream ms = new MemoryStream();
-                await WriteFlowFilesV3Async(packages, ms);
-                ms.Position = 0;
-
-                StreamContent content = new StreamContent(ms);
-                content.Headers.ContentType = new MediaTypeHeaderValue("application/flowfile-v3");
-                
-                // NiFi S2S Transaction flow-files endpoint
-                string transfer_url = $"{nifi_base_url}/nifi-api/site-to-site/input-ports/{port.id}/transactions/{transaction.id}/flow-files";
-                HttpResponseMessage transfer_response = await http_client_.PostAsync(transfer_url, content);
-                if (!transfer_response.IsSuccessStatusCode) return false;
-
-                // 4. Commit Transaction
-                // First: Confirm (set state to TRANSACTION_CONFIRMED)
-                string confirm_url = $"{nifi_base_url}/nifi-api/site-to-site/input-ports/{port.id}/transactions/{transaction.id}?state=TRANSACTION_CONFIRMED";
-                HttpResponseMessage confirm_response = await http_client_.PutAsync(confirm_url, null);
-                
-                return confirm_response.IsSuccessStatusCode;
-            }
-            catch
-            {
-                // Optional: Try to cancel the transaction if possible
-                return false;
-            }
-        }
-
-        #endregion
-
-        #region Helpers & Models
+        #region Helpers
 
         private async Task WriteStringV3Async(Stream stream, string value)
         {
@@ -271,28 +205,6 @@ namespace Nifi.Utils
         }
 
         private string EscapeProperty(string value) => value.Replace("\\", "\\\\").Replace("=", "\\=").Replace(":", "\\:").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
-
-        // DTOs for NiFi S2S API
-        private class NifiSiteToSiteDto
-        {
-            public NifiControllerDto? controller { get; set; }
-        }
-
-        private class NifiControllerDto
-        {
-            public List<NifiPortDto>? input_ports { get; set; }
-        }
-
-        private class NifiPortDto
-        {
-            public string? id { get; set; }
-            public string? name { get; set; }
-        }
-
-        private class NifiTransactionDto
-        {
-            public string? id { get; set; }
-        }
 
         #endregion
     }
