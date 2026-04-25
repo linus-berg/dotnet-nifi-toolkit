@@ -110,11 +110,15 @@ await foreach (var package in flowFileService.UnpackFlowFilesV3Async(inputStream
     // Process package.content...
 }
 ```
-
 ## Implementation Details
 
+The implementation of FlowFile formats and protocols in this library is based on the official Apache NiFi source code.
+
 ### FlowFile V3 Format
-The library implements the NiFi FlowFile V3 specification:
+The library implements the NiFi FlowFile V3 specification as defined in the NiFi source:
+- [FlowFilePackagerV3.java](https://github.com/apache/nifi/blob/main/nifi-commons/nifi-flowfile-packager/src/main/java/org/apache/nifi/util/FlowFilePackagerV3.java)
+- [FlowFileUnpackagerV3.java](https://github.com/apache/nifi/blob/main/nifi-commons/nifi-flowfile-packager/src/main/java/org/apache/nifi/util/FlowFileUnpackagerV3.java)
+
 1. **Magic Header**: `NiFiFF3`
 2. **Attributes Count**: 2-byte or 6-byte encoded length.
 3. **Attributes**: Key-value pairs with length-prefixed strings.
