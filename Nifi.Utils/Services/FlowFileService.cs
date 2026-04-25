@@ -119,7 +119,7 @@ public class FlowFileService : IFlowFileService {
 
   public async Task WriteFlowFileV1Async(IDictionary<string, string> attributes,
                                          Stream content, Stream output_stream) {
-    using TarWriter writer = new(output_stream, TarEntryFormat.Ustar, true);
+    await using TarWriter writer = new(output_stream, TarEntryFormat.Ustar, true);
 
     string attr_content = SerializeAttributesV1(attributes);
     byte[] attr_bytes = Encoding.UTF8.GetBytes(attr_content);
@@ -222,8 +222,8 @@ public class FlowFileService : IFlowFileService {
     return sb.ToString();
   }
 
-  private string EscapeProperty(string value) {
-    return value.Replace("\\", "\\\\")
+  private static string EscapeProperty(string value) {
+    return value.Replace("\\", @"\\")
                 .Replace("=", "\\=")
                 .Replace(":", "\\:")
                 .Replace("\n", "\\n")
