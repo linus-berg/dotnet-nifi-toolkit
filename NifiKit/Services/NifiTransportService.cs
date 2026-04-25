@@ -222,7 +222,7 @@ public class NifiTransportService : INifiTransportService {
 
   private class NifiTransactionDto {
     [JsonPropertyName("id")]
-    public string? id { get; set; }
+    public string? id { get; init; }
   }
 
   #endregion

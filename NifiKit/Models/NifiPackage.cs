@@ -9,7 +9,7 @@ public class NifiPackage : IDisposable {
   /// <summary>
   ///   FlowFile attributes.
   /// </summary>
-  public IDictionary<string, string> attributes { get; set; } =
+  public IDictionary<string, string> attributes { get; } =
     new Dictionary<string, string>();
 
   /// <summary>
@@ -18,7 +18,7 @@ public class NifiPackage : IDisposable {
   public Stream content { get; set; } = Stream.Null;
 
   public void Dispose() {
-    content?.Dispose();
+    content.Dispose();
   }
 
   #region Attribute Helpers
@@ -93,7 +93,7 @@ public class NifiPackage : IDisposable {
   ///   Sets the content from a byte array.
   /// </summary>
   public NifiPackage SetContent(byte[] data) {
-    content?.Dispose();
+    content.Dispose();
     content = new MemoryStream(data);
     return this;
   }
@@ -110,7 +110,7 @@ public class NifiPackage : IDisposable {
   /// </summary>
   public NifiPackage SetContent(Stream stream) {
     if (content != stream) {
-      content?.Dispose();
+      content.Dispose();
       content = stream;
     }
 

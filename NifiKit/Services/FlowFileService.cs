@@ -239,7 +239,7 @@ public class FlowFileService : IFlowFileService {
       true
     );
 
-    // 1. Serialize and write attributes file
+    // 1. Serialize and write attribute file
     string attr_content = SerializeAttributesV1(package.attributes);
     byte[] attr_bytes = Encoding.UTF8.GetBytes(attr_content);
     UstarTarEntry attr_entry = new(

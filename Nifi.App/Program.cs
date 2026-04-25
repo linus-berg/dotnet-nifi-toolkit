@@ -10,12 +10,21 @@ Console.WriteLine("Hello, World!");
 Faker faker = new();
 string content = faker.Lorem.Paragraphs(100);
 FlowFileService service = new();
-NifiPackage nifi_pkg = new();
+using (NifiPackage nifi_tst_pkg = new()) {
+  nifi_tst_pkg.AddAttribute("attribute_1", "attribute-value")
+              .AddAttribute("xyz", "A GREAT ATTRIBUTE OF GREAT VALUE") 
+              .AddAttribute("a-weird-value", "åäö");
+  
+}
 
-nifi_pkg.AddAttribute("attribute_1", "attribute-value");
-nifi_pkg.AddAttribute("xyz", "A GREAT ATTRIBUTE OF GREAT VALUE");
-nifi_pkg.AddAttribute("a-weird-value", "åäö");
-nifi_pkg.SetContent(Encoding.UTF8.GetBytes(content));
+//nifi_pkg.SetContent(Encoding.UTF8.GetBytes(content));
+NifiPackage nifi_pkg = new();
+  nifi_pkg.AddAttribute("attribute_1", "attribute-value")
+          .AddAttribute("xyz", "A GREAT ATTRIBUTE OF GREAT VALUE") 
+          .AddAttribute("a-weird-value", "åäö");
+  
+
+//nifi_pkg.SetContent(Encoding.UTF8.GetBytes(content));
 
 byte[] flowfile = await service.CreateFlowFileV3Async(nifi_pkg);
 
