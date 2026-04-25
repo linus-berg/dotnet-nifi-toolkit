@@ -1,11 +1,10 @@
 using System.IO.Pipelines;
-using System.Runtime.CompilerServices;
 using NifiKit.Models;
 
 namespace NifiKit.Services;
 
 /// <summary>
-/// Service for producing and receiving NiFi FlowFiles using V1 and V3 formats.
+///   Service for producing and receiving NiFi FlowFiles using V1 and V3 formats.
 /// </summary>
 public interface IFlowFileService {
   // --- Package Helpers ---

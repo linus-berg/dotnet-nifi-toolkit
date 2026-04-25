@@ -7,10 +7,10 @@ using NifiKit.Models;
 using NifiKit.Services;
 
 Console.WriteLine("Hello, World!");
-Faker faker = new Faker();
+Faker faker = new();
 string content = faker.Lorem.Paragraphs(100);
 FlowFileService service = new();
-NifiPackage nifi_pkg = new NifiPackage();
+NifiPackage nifi_pkg = new();
 
 nifi_pkg.AddAttribute("attribute_1", "attribute-value");
 nifi_pkg.SetContent(Encoding.UTF8.GetBytes(content));

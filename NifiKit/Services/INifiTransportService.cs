@@ -3,7 +3,7 @@ using NifiKit.Models;
 namespace NifiKit.Services;
 
 /// <summary>
-/// Service for transporting NiFi FlowFiles using ListenHTTP and Site-to-Site (S2S).
+///   Service for transporting NiFi FlowFiles using ListenHTTP and Site-to-Site (S2S).
 /// </summary>
 public interface INifiTransportService {
   // --- Transport: ListenHTTP ---
