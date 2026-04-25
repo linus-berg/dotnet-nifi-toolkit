@@ -1,6 +1,6 @@
-# .NET NiFi Utilities
+# NifiKit
 
-A lightweight .NET 10 library for producing, receiving, and transporting Apache NiFi FlowFiles. This utility provides support for FlowFile V1 (Tar archive), FlowFile V3 (Binary stream), and Site-to-Site (S2S) protocol communication.
+A lightweight .NET library for producing, receiving, and transporting Apache NiFi FlowFiles. This utility provides support for FlowFile V1 (Tar archive), FlowFile V3 (Binary stream), and Site-to-Site (S2S) protocol communication.
 
 ## Features
 
@@ -10,6 +10,7 @@ A lightweight .NET 10 library for producing, receiving, and transporting Apache 
   - **ListenHTTP**: Post FlowFiles directly to NiFi's `ListenHTTP` processor.
   - **Site-to-Site (S2S)**: Push data to NiFi Input Ports using the native S2S protocol.
 - **Asynchronous Design**: Fully async/await compliant for high-performance streaming.
+- **Multi-targeting**: Supports .NET 8.0, 9.0, and 10.0.
 
 ## Architecture
 
@@ -20,7 +21,7 @@ The library is divided into two primary services to separate concerns between da
 
 ## Project Structure
 
-- `Nifi.Utils`: The core library.
+- `NifiKit`: The core library.
   - `Services/`: Contains the interface and implementation for FlowFile and Transport services.
   - `Models/`: Contains the `NifiPackage` data model.
 - `Nifi.App`: A console application (placeholder for usage and testing).
@@ -29,7 +30,7 @@ The library is divided into two primary services to separate concerns between da
 
 ### Prerequisites
 
-- .NET 10.0 SDK
+- .NET 8.0, 9.0, or 10.0 SDK
 
 ### Core Models
 
@@ -37,7 +38,7 @@ The library is divided into two primary services to separate concerns between da
 Represents a single NiFi FlowFile. It provides fluent helper methods for setting attributes and content.
 
 ```csharp
-using Nifi.Utils.Models;
+using NifiKit.Models;
 
 var package = new NifiPackage()
     .AddAttribute("filename", "test.txt")
@@ -50,7 +51,7 @@ var package = new NifiPackage()
 #### Initializing Services (Dependency Injection)
 
 ```csharp
-using Nifi.Utils.Services;
+using NifiKit.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 // Registration example
