@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using Nifi.Utils.Models;
 
 namespace Nifi.Utils.Services;
@@ -26,6 +27,7 @@ public class NifiTransportService : INifiTransportService {
     return response.IsSuccessStatusCode;
   }
 
+  /* Warning: Not tested */
   public async Task<bool> SendViaS2SAsync(string nifi_base_url,
                                           string input_port_name,
                                           IEnumerable<NifiPackage> packages) {
@@ -100,19 +102,24 @@ public class NifiTransportService : INifiTransportService {
   #region DTOs for NiFi S2S API
 
   private class NifiSiteToSiteDto {
+    [JsonPropertyName("controller")]
     public NifiControllerDto? controller { get; set; }
   }
 
   private class NifiControllerDto {
+    [JsonPropertyName("inputPorts")]
     public List<NifiPortDto>? input_ports { get; set; }
   }
 
   private class NifiPortDto {
+    [JsonPropertyName("id")]
     public string? id { get; set; }
+    [JsonPropertyName("name")]
     public string? name { get; set; }
   }
 
   private class NifiTransactionDto {
+    [JsonPropertyName("id")]
     public string? id { get; set; }
   }
 
