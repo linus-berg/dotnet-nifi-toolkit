@@ -183,16 +183,10 @@ internal sealed class TlsTestServer : IAsyncDisposable {
         client_subjects.Add(presented!.Subject);
       }
 
-      // Read the request head, then answer and close
-      byte[] buffer = new byte[8192];
-      StringBuilder head = new();
-      while (!head.ToString().Contains("\r\n\r\n")) {
-        int read = await ssl.ReadAsync(buffer, stop_.Token);
-        if (read == 0) {
-          return;
-        }
-
-        head.Append(Encoding.ASCII.GetString(buffer, 0, read));
+      // Read the complete request (head and body) before answering. Closing
+      // while the client is still uploading would break its pipe.
+      if (!await ReadRequestAsync(ssl)) {
+        return;
       }
 
       string body = "{\"identity\":\"" + presented!.Subject + "\"}";
@@ -202,6 +196,86 @@ internal sealed class TlsTestServer : IAsyncDisposable {
       await ssl.WriteAsync(Encoding.UTF8.GetBytes(response), stop_.Token);
       await ssl.FlushAsync(stop_.Token);
     }
+  }
+
+  /// <summary>
+  ///   Consumes one HTTP/1.1 request; the body is read according to
+  ///   Content-Length or chunked transfer encoding and discarded.
+  /// </summary>
+  private async Task<bool> ReadRequestAsync(Stream stream) {
+    byte[] buffer = new byte[64 * 1024];
+    MemoryStream received = new();
+    int head_end;
+    while ((head_end = received.GetBuffer()
+                               .AsSpan(0, (int)received.Length)
+                               .IndexOf("\r\n\r\n"u8)) < 0) {
+      int read = await stream.ReadAsync(buffer, stop_.Token);
+      if (read == 0) {
+        return false;
+      }
+
+      received.Write(buffer, 0, read);
+    }
+
+    string head = Encoding.ASCII.GetString(received.GetBuffer(), 0, head_end);
+    string[] header_lines = head.Split("\r\n");
+    bool chunked = header_lines.Any(
+      l => l.StartsWith("Transfer-Encoding:", StringComparison.OrdinalIgnoreCase) &&
+           l.Contains("chunked", StringComparison.OrdinalIgnoreCase)
+    );
+    string? content_length = header_lines
+                             .Where(l => l.StartsWith("Content-Length:",
+                                           StringComparison.OrdinalIgnoreCase))
+                             .Select(l => l.Substring("Content-Length:".Length)
+                                           .Trim())
+                             .FirstOrDefault();
+
+    // Bytes after the head that already arrived with it
+    byte[] tail = received.GetBuffer()
+                          .AsSpan(head_end + 4,
+                                  (int)received.Length - head_end - 4)
+                          .ToArray();
+    if (chunked) {
+      // Read until the terminating zero-length chunk
+      List<byte> body = new(tail);
+      while (!EndsWith(body, "0\r\n\r\n"u8)) {
+        int read = await stream.ReadAsync(buffer, stop_.Token);
+        if (read == 0) {
+          return false;
+        }
+
+        body.AddRange(buffer.AsSpan(0, read).ToArray());
+      }
+    } else if (content_length != null) {
+      long remaining = long.Parse(content_length) - tail.Length;
+      while (remaining > 0) {
+        int read = await stream.ReadAsync(
+                     buffer.AsMemory(0, (int)Math.Min(buffer.Length, remaining)),
+                     stop_.Token
+                   );
+        if (read == 0) {
+          return false;
+        }
+
+        remaining -= read;
+      }
+    }
+
+    return true;
+  }
+
+  private static bool EndsWith(List<byte> data, ReadOnlySpan<byte> suffix) {
+    if (data.Count < suffix.Length) {
+      return false;
+    }
+
+    for (int i = 0; i < suffix.Length; i++) {
+      if (data[data.Count - suffix.Length + i] != suffix[i]) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private bool IsIssuedByTrustedCa(X509Certificate2 certificate) {

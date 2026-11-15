@@ -205,10 +205,11 @@ public sealed class MutualTlsTests : IDisposable {
     Assert.NotNull(provider.GetRequiredService<IFlowFileService>());
 
     // The test server answers anything with 200, which is enough to prove
-    // the transport's HttpClient completed a mutual TLS handshake
+    // the transport's HttpClient completed a mutual TLS handshake. The body
+    // is larger than any socket buffer, so the server must read it all.
     bool ok = await transport.PostToNiFiAsync(
                 $"https://localhost:{server.port}/contentListener",
-                new MemoryStream(TestData.Fixture("nifi_v3_two_flowfiles.bin"))
+                new MemoryStream(RandomNumberGenerator.GetBytes(8 * 1024 * 1024))
               );
     Assert.True(ok);
     Assert.Equal(new[] { "CN=nifikit-test-client" }, server.client_subjects);
