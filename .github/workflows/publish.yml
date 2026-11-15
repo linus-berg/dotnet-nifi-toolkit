@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -18,18 +18,23 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
-          
+
+      - name: Determine version
+        # Extract version from tag (e.g., refs/tags/v1.2.3 -> 1.2.3)
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+
       - name: Restore dependencies
         run: dotnet restore
-        
+
       - name: Build
-        run: dotnet build --no-restore -c Release
-        
+        # Version at build time so AssemblyVersion/FileVersion match the package
+        run: dotnet build --no-restore -c Release -p:Version=$VERSION
+
+      - name: Test
+        run: dotnet test --no-build -c Release
+
       - name: Pack
-        run: |
-          # Extract version from tag (e.g., refs/tags/v1.2.3 -> 1.2.3)
-          VERSION=${GITHUB_REF#refs/tags/v}
-          dotnet pack NifiKit/NifiKit.csproj --no-build -c Release -o out -p:PackageVersion=$VERSION
-        
+        run: dotnet pack NifiKit/NifiKit.csproj --no-build -c Release -o out -p:Version=$VERSION
+
       - name: Push to NuGet
-        run: dotnet nuget push out/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push out/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate

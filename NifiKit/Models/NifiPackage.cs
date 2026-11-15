@@ -5,6 +5,18 @@ namespace NifiKit.Models;
 /// <summary>
 ///   Represents a single NiFi FlowFile (attributes + content).
 /// </summary>
+/// <remarks>
+///   <para>
+///     Content semantics: a <b>seekable</b> content stream is always treated as
+///     the whole stream, from position 0 to its length. Serializers rewind it
+///     before reading, so the same package can be written more than once (for
+///     example when a Site-to-Site transaction is retried).
+///   </para>
+///   <para>
+///     A <b>non-seekable</b> content stream can only be read once. Serializers
+///     buffer it in memory where the format requires the length up front.
+///   </para>
+/// </remarks>
 public class NifiPackage : IDisposable {
   /// <summary>
   ///   FlowFile attributes.
@@ -13,7 +25,8 @@ public class NifiPackage : IDisposable {
     new Dictionary<string, string>();
 
   /// <summary>
-  ///   FlowFile content stream.
+  ///   FlowFile content stream. See the class remarks for how seekable and
+  ///   non-seekable streams are read.
   /// </summary>
   public Stream content { get; set; } = Stream.Null;
 
@@ -106,7 +119,8 @@ public class NifiPackage : IDisposable {
   }
 
   /// <summary>
-  ///   Sets the content from a stream.
+  ///   Sets the content from a stream. The package takes ownership of the
+  ///   stream and disposes it together with the package.
   /// </summary>
   public NifiPackage SetContent(Stream stream) {
     if (content != stream) {
@@ -121,7 +135,8 @@ public class NifiPackage : IDisposable {
   ///   Reads the entire content as a byte array.
   ///   Note: This will consume the stream if it is not seekable.
   /// </summary>
-  public async Task<byte[]> GetContentAsBytesAsync() {
+  public async Task<byte[]> GetContentAsBytesAsync(
+    CancellationToken ct = default) {
     if (content == Stream.Null) {
       return Array.Empty<byte>();
     }
@@ -134,10 +149,10 @@ public class NifiPackage : IDisposable {
     if (content.CanSeek) {
       long original_position = content.Position;
       content.Position = 0;
-      await content.CopyToAsync(memory_stream);
+      await content.CopyToAsync(memory_stream, ct);
       content.Position = original_position;
     } else {
-      await content.CopyToAsync(memory_stream);
+      await content.CopyToAsync(memory_stream, ct);
     }
 
     return memory_stream.ToArray();
@@ -147,8 +162,10 @@ public class NifiPackage : IDisposable {
   ///   Reads the entire content as a string.
   ///   Note: This will consume the stream if it is not seekable.
   /// </summary>
-  public async Task<string> GetContentAsStringAsync(Encoding? encoding = null) {
-    byte[] bytes = await GetContentAsBytesAsync();
+  public async Task<string> GetContentAsStringAsync(Encoding? encoding = null,
+                                                   CancellationToken ct =
+                                                     default) {
+    byte[] bytes = await GetContentAsBytesAsync(ct);
     return (encoding ?? Encoding.UTF8).GetString(bytes);
   }
 

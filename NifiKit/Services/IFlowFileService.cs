@@ -12,11 +12,23 @@ public interface IFlowFileService {
                             byte[] content);
 
   // --- V3 (Binary Stream) ---
-  Task<byte[]> CreateFlowFileV3Async(NifiPackage package);
-  Task WriteFlowFileV3Async(NifiPackage package, Stream output_stream);
+
+  /// <summary>
+  ///   Packs a FlowFile in V3 format (<c>application/flowfile-v3</c>).
+  /// </summary>
+  /// <exception cref="ArgumentException">
+  ///   The package has no attributes. NiFi rejects V3 FlowFiles without
+  ///   attributes.
+  /// </exception>
+  Task<byte[]> CreateFlowFileV3Async(NifiPackage package,
+                                     CancellationToken ct = default);
+
+  Task WriteFlowFileV3Async(NifiPackage package, Stream output_stream,
+                            CancellationToken ct = default);
 
   Task WriteFlowFilesV3Async(IEnumerable<NifiPackage> packages,
-                             Stream output_stream);
+                             Stream output_stream,
+                             CancellationToken ct = default);
 
   IAsyncEnumerable<NifiPackage> UnpackFlowFilesV3Async(
     Stream input_stream, CancellationToken ct = default);
@@ -29,6 +41,14 @@ public interface IFlowFileService {
     PipeReader reader, CancellationToken ct = default);
 
   // --- V1 (Tar Archive) ---
-  Task<byte[]> CreateFlowFileV1Async(NifiPackage package);
-  Task WriteFlowFileV1Async(NifiPackage package, Stream output_stream);
+
+  /// <summary>
+  ///   Packs a FlowFile in the legacy V1 (tar) format. NiFi 2.x deprecates
+  ///   this format; prefer V3.
+  /// </summary>
+  Task<byte[]> CreateFlowFileV1Async(NifiPackage package,
+                                     CancellationToken ct = default);
+
+  Task WriteFlowFileV1Async(NifiPackage package, Stream output_stream,
+                            CancellationToken ct = default);
 }

@@ -7,18 +7,31 @@
         <!-- NuGet Metadata -->
         <PackageId>NifiKit</PackageId>
         <Authors>linus-berg</Authors>
-        <Description>A lightweight .NET library for producing, receiving, and transporting Apache NiFi FlowFiles (V1, V3, and S2S).</Description>
-        <PackageTags>nifi;flowfile;s2s;transport;utils</PackageTags>
+        <Description>A lightweight .NET library for producing, receiving, and transporting Apache NiFi FlowFiles (V1, V3, ListenHTTP and HTTP(S) Site-to-Site with mutual TLS).</Description>
+        <PackageTags>nifi;flowfile;s2s;site-to-site;mtls;transport;utils</PackageTags>
         <RepositoryUrl>https://github.com/linus-berg/dotnet-nifi-toolkit</RepositoryUrl>
         <PackageProjectUrl>https://github.com/linus-berg/dotnet-nifi-toolkit</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
         <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0"/>
+        <None Include="..\README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="NifiKit.Tests"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3"/>
         <PackageReference Include="Polly.Core" Version="8.3.0"/>
+        <PackageReference Include="System.IO.Hashing" Version="8.0.0"/>
         <PackageReference Include="System.IO.Pipelines" Version="8.0.0"/>
     </ItemGroup>
 
