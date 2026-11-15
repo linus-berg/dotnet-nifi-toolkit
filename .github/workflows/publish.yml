@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # lets NuGet/login request a GitHub OIDC token (trusted publishing)
     steps:
       - uses: actions/checkout@v4
 
@@ -36,5 +39,14 @@ jobs:
       - name: Pack
         run: dotnet pack NifiKit/NifiKit.csproj --no-build -c Release -o out -p:Version=$VERSION
 
+      # Trusted publishing: exchange the OIDC token for a short-lived API key.
+      # Requires a trusted publishing policy on nuget.org for this repository
+      # and workflow file (publish.yml).
+      - name: NuGet login
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: LinusBerg # nuget.org username (profile name) owning the policy
+
       - name: Push to NuGet
-        run: dotnet nuget push out/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        run: dotnet nuget push out/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate

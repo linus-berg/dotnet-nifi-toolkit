@@ -220,10 +220,13 @@ The tests authenticate as `CN=nifikit-client` (the initial admin), grant themsel
 This project includes a GitHub Action that runs the tests and publishes the library to NuGet when a new version tag is pushed.
 
 ### Setup
-1. Create a [NuGet API Key](https://www.nuget.org/account/apikeys).
-2. Add the key as a secret in your GitHub repository:
-   - Name: `NUGET_API_KEY`
-   - Value: (Your API Key)
+Publishing uses [NuGet trusted publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing): the workflow exchanges a GitHub OIDC token for a short-lived API key, so no API key secret is stored in the repository.
+
+1. On nuget.org, open your username menu, choose **Trusted Publishing**, and add a GitHub Actions policy:
+   - Repository owner: `linus-berg`
+   - Repository: `dotnet-nifi-toolkit`
+   - Workflow file: `publish.yml`
+2. The `user` of the `NuGet/login` step in `.github/workflows/publish.yml` must be the nuget.org username that owns the policy (`LinusBerg`).
 
 ### Triggering a Release
 To trigger a new release, create and push a tag:
